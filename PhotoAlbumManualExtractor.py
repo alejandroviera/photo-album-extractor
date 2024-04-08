@@ -24,7 +24,6 @@ rectangle_thickness = 2
 cropChanging = False
 topLeft = (0,0)
 bottomRight = (0, 0)
-rotationAngle = 0
 original_image_cropped = None
 
 def create_argparser():
@@ -58,12 +57,7 @@ def save(output_folder, base_file_name, index):
         ])
     homography, _ = cv2.findHomography(sorted_points, new_points, cv2.RANSAC)
 
-    if rotationAngle != 0:
-        rotated_original_image = imutils.rotate_bound(original_image_cropped, rotationAngle)
-    else:
-        rotated_original_image = original_image_cropped
-
-    photo = cv2.warpPerspective(rotated_original_image, homography, (w, h))
+    photo = cv2.warpPerspective(original_image_cropped, homography, (w, h))
 
     output_file = os.path.join(output_folder, base_file_name + "-" + str(index) + ".jpg")
     write_image(output_file, photo)
@@ -72,7 +66,7 @@ def save(output_folder, base_file_name, index):
 
 
 def crop():
-    global original_image_cropped, rotationAngle
+    global original_image_cropped
     if bottomRight[0] == topLeft[0] or bottomRight[1] == topLeft[1]:
         return False
     
@@ -84,12 +78,7 @@ def crop():
     maxY = min(max(topLeft[1], bottomRight[1]), h)
 
     if minX != maxX and minY != maxY:
-        if rotationAngle != 0:
-            temp_image = imutils.rotate_bound(original_image_cropped, rotationAngle)
-            rotationAngle = 0
-        else:
-            temp_image = original_image_cropped
-        original_image_cropped = temp_image[int(minY / resizeRatio) : int(maxY / resizeRatio), int(minX / resizeRatio) : int(maxX / resizeRatio)]
+        original_image_cropped = original_image_cropped[int(minY / resizeRatio) : int(maxY / resizeRatio), int(minX / resizeRatio) : int(maxX / resizeRatio)]
         show_image()
 
 
@@ -102,9 +91,6 @@ def reset():
 def show_image():
     global working_image, resizeRatio
     working_image = original_image_cropped.copy()
-    
-    if rotationAngle != 0:
-        working_image = imutils.rotate_bound(working_image, rotationAngle)
     
     h, w = working_image.shape[0:2]
     if w > monitor_resolution[0] or h > monitor_resolution[1]:
@@ -143,7 +129,7 @@ def cropAreaChanged(action, x, y, flags, userdata):
 
 
 def process_file(input_file, output_folder):
-    global original_image, original_image_cropped, rotationAngle
+    global original_image, original_image_cropped, working_image, points
     
     base_file_name = os.path.splitext(os.path.basename(input_file))[0]
     original_image = read_image(input_file)
@@ -162,10 +148,16 @@ def process_file(input_file, output_folder):
         elif k == ord('n'):
             break
         elif k == ord('h'):
-            rotationAngle += 90
+            working_image = imutils.rotate_bound(working_image, 90)
+            original_image = imutils.rotate_bound(original_image, 90)
+            original_image_cropped = imutils.rotate_bound(original_image_cropped, 90)
+            points.clear()
             show_image()
         elif k == ord('g'):
-            rotationAngle -= 90
+            working_image = imutils.rotate_bound(working_image, -90)
+            original_image = imutils.rotate_bound(original_image, -90)
+            original_image_cropped = imutils.rotate_bound(original_image_cropped, -90)
+            points.clear()
             show_image()
         elif k == ord('s'):
             save(output_folder, base_file_name, image_index)
