@@ -17,62 +17,20 @@ working_image = None
 monitor_resolution = (0, 0)
 resizeRatio = 1
 
-points = []
-
-#cropping
 rectangle_thickness = 2
 cropChanging = False
 topLeft = (0,0)
 bottomRight = (0, 0)
 rotationAngle = 0
-original_image_cropped = None
 
 def create_argparser():
     parser = argparse.ArgumentParser("Extracts each photo detected in scanned photo album pages")
     parser.add_argument('--input-folder', '-i', help='Path that contains the images of all the scanned photo album pages.', required=False)
-    parser.add_argument('--debug', '-d', help='Indicates if you want to generate output images showing the results of each step of the process.', default=False, action=argparse.BooleanOptionalAction, type=bool)
-    parser.add_argument('--verbose', '-v', help='Indicates if you want a verbose output in the console.', default=False, action=argparse.BooleanOptionalAction, type=bool)
 
     return parser
 
 
-def save(output_folder, base_file_name, index):
-    if len(points) < 4:
-        return False
-    
-    sorted_points = sorted(points, key = lambda x: x[0] + x[1])
-    # We want to make sure we return the points in this order: top-left, bottom-left, top-right, bottom-right
-        # This assumption is used when the homography is applied to warp the perspective
-
-    if sorted_points[2][0] < sorted_points[1][0]:
-        sorted_points[1], sorted_points[2] = sorted_points[2], sorted_points[1]
-
-    sorted_points = np.array(sorted_points)
-    sorted_points = np.round(sorted_points / resizeRatio).astype(np.int32)
-    x,y,w,h = cv2.boundingRect(sorted_points)
-    new_points = np.array([
-        [0, 0],
-        [0, h],
-        [w, 0],
-        [w, h]
-        ])
-    homography, _ = cv2.findHomography(sorted_points, new_points, cv2.RANSAC)
-
-    if rotationAngle != 0:
-        rotated_original_image = imutils.rotate_bound(original_image_cropped, rotationAngle)
-    else:
-        rotated_original_image = original_image_cropped
-
-    photo = cv2.warpPerspective(rotated_original_image, homography, (w, h))
-
-    output_file = os.path.join(output_folder, base_file_name + "-" + str(index) + ".jpg")
-    write_image(output_file, photo)
-
-    return True
-
-
-def crop():
-    global original_image_cropped, rotationAngle
+def save(output_folder, base_file_name):
     if bottomRight[0] == topLeft[0] or bottomRight[1] == topLeft[1]:
         return False
     
@@ -85,24 +43,21 @@ def crop():
 
     if minX != maxX and minY != maxY:
         if rotationAngle != 0:
-            temp_image = imutils.rotate_bound(original_image_cropped, rotationAngle)
-            rotationAngle = 0
+            temp_image = imutils.rotate_bound(original_image, rotationAngle)
+            roi = temp_image[int(minY / resizeRatio) : int(maxY / resizeRatio), int(minX / resizeRatio) : int(maxX / resizeRatio)]
         else:
-            temp_image = original_image_cropped
-        original_image_cropped = temp_image[int(minY / resizeRatio) : int(maxY / resizeRatio), int(minX / resizeRatio) : int(maxX / resizeRatio)]
-        show_image()
-
-
-def reset():
-    global points, original_image_cropped
-    points.clear()
-    original_image_cropped = original_image.copy()
+            roi = original_image
+        output_file = os.path.join(output_folder, base_file_name + ".jpg")
+        return write_image(output_file, roi)
+    else:
+        return False
 
 
 def show_image():
     global working_image, resizeRatio
-    working_image = original_image_cropped.copy()
-    
+
+    working_image = original_image.copy()
+
     if rotationAngle != 0:
         working_image = imutils.rotate_bound(working_image, rotationAngle)
     
@@ -117,7 +72,10 @@ def show_image():
     else:
         resizeRatio = 1
 
-    cv2.imshow(window_name, working_image)
+    tempFrame2 = working_image.copy()
+    cv2.rectangle(tempFrame2, topLeft, bottomRight, (0,255,0), rectangle_thickness, cv2.LINE_AA)
+
+    cv2.imshow(window_name, tempFrame2)
 
     return True
 
@@ -125,16 +83,10 @@ def show_image():
 def cropAreaChanged(action, x, y, flags, userdata):
     global cropChanging, topLeft, bottomRight
     if action == cv2.EVENT_LBUTTONDOWN:
-        if len(points) < 4:
-            points.append((x, y))
-            cv2.circle(working_image, (x, y), 2, (0, 255, 0), 2, cv2.LINE_AA)
-            cv2.imshow(window_name, working_image)
-    elif action == cv2.EVENT_RBUTTONDOWN:
         topLeft = (x,y)
         cropChanging = True
-    elif action == cv2.EVENT_RBUTTONUP:
+    elif action == cv2.EVENT_LBUTTONUP:
         cropChanging = False
-        crop()
     elif action == cv2.EVENT_MOUSEMOVE and cropChanging:
         bottomRight = (x, y)
         tempFrame2 = working_image.copy()
@@ -143,16 +95,14 @@ def cropAreaChanged(action, x, y, flags, userdata):
 
 
 def process_file(input_file, output_folder):
-    global original_image, original_image_cropped, rotationAngle
+    global original_image, rotationAngle
     
     base_file_name = os.path.splitext(os.path.basename(input_file))[0]
     original_image = read_image(input_file)
     
-    reset()
     show_image()
     
     exit = False
-    image_index = 1
 
     while True:
         k = cv2.waitKey(0)
@@ -168,13 +118,9 @@ def process_file(input_file, output_folder):
             rotationAngle -= 90
             show_image()
         elif k == ord('s'):
-            save(output_folder, base_file_name, image_index)
-            image_index += 1
-            reset()
-            show_image()
-        elif k == ord('r'):
-            reset()
-            show_image()
+            result = save(output_folder, base_file_name)
+            if result:
+                break # only one save per file. Automatically go for next
 
     return exit
 
@@ -190,7 +136,6 @@ def main():
             return
     
     output_folder = os.path.join(input_folder, 'crops')
-    debug = args.debug
 
     monitor_resolution = get_monitor_resolution()
     cv2.namedWindow(window_name, cv2.WINDOW_AUTOSIZE)
@@ -199,6 +144,7 @@ def main():
     os.makedirs(output_folder, exist_ok=True)
 
     input_files = glob.glob(os.path.join(input_folder, '*.*'))
+    
     for filename in input_files:
         if os.path.isfile(filename):
             exit = process_file(filename, output_folder)
@@ -210,3 +156,4 @@ def main():
 
 if __name__ == "__main__":
     main()
+

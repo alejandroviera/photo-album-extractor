@@ -16,15 +16,19 @@ def read_image(filename):
 
 
 def write_image(filename, image, jpg_quality = 100):
+    result = False
     extension = os.path.splitext(os.path.basename(filename))[1]
     args = None
     if extension == ".jpg" and not jpg_quality is None:
         args = [cv2.IMWRITE_JPEG_QUALITY, jpg_quality]
     
-    result = cv2.imwrite(filename, image)
-    if not result:
-        _, image_bytes = cv2.imencode(extension, image, args)
-        with open(filename, "wb") as write_file:
-            result = write_file.write(image_bytes)
+    h, w = image.shape[0:2]
+
+    if h > 0 and w > 0:
+        result = cv2.imwrite(filename, image)
+        if not result:
+            _, image_bytes = cv2.imencode(extension, image, args)
+            with open(filename, "wb") as write_file:
+                result = write_file.write(image_bytes)
     
     return result
