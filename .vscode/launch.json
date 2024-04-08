@@ -1,0 +1,61 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    "version": "0.2.0",
+    "configurations": [
+
+
+
+        {
+            "name": "Python Debugger: Current File - No Arguments",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "args": "${command:pickArgs}"
+        },
+        {
+            "name": "Python Debugger: Current File - Photo Album Dataset Creator",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--input-folder", "C:/Temp/Folder1/Input",
+                "--background-folder", "C:/Temp/Folder1/Background",
+                "--temp-folder", "C:/Temp/Folder1/training_data/temp_images",
+                "--yolo-output-folder", "C:/Temp/Folder1/training_data/yolo_dir",
+                "--image-size", "1024",
+                "--total-images", "100",
+                "--verbose"
+            ]
+        },
+        {
+            "name": "Python Debugger: Current File - Photo Album Extractor",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--input-folder", "C:/Users/Alejandro/Downloads/Fotos para cortar-20240407T163142Z-001/Fotos para cortar/",
+                //"--output-folder", "C:/Users/Alejandro/OneDrive/Pictures/2024. Digitalización/1994.09 Orlando (Album 1) (incompleto)/1994-09-17/crops",
+                "--debug"
+            ]
+        },
+        {
+            "name": "Python Debugger: Current File - Image Auto Levels",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "${file}",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "--input-folder", "C:/Users/Alejandro/OneDrive/Pictures/2024. Digitalización/1980.03 Album Luna de Miel 1980-03-19 al 1980-03-26/1980-03-20/temp",
+                "--remove-dust"
+            ]
+        },
+    ]
+}
